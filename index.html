@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خريطة مدينة الديوانية المباشرة</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b0e14;
+            color: #ffffff;
+            font-family: Tahoma, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        h1 {
+            margin: 10px 0;
+            font-size: 24px;
+            color: #ff4757;
+        }
+        #map-container {
+            position: relative;
+            width: 800px;
+            height: 800px;
+            background: #1e272e;
+            border: 4px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #map-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .player-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #2ed573;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .player-marker:hover {
+            transform: translate(-50%, -50%) scale(1.5);
+            background-color: #ffa502;
+            z-index: 100;
+        }
+        .player-tooltip {
+            position: absolute;
+            bottom: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            display: none;
+            pointer-events: none;
+        }
+        .player-marker:hover .player-tooltip {
+            display: block;
+        }
+        #players-list {
+            margin-top: 15px;
+            max-width: 800px;
+            width: 100%;
+            background: #1e272e;
+            padding: 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🗺️ خريطة مدينة الديوانية الحية</h1>
+    
+    <div id="map-container">
+        <!-- ضع رابط صورة الخريطة المباشر هنا -->
+        <img id="map-image" src="map.jpg" alt="خريطة المدينة">
+        <div id="markers-layer"></div>
+    </div>
+
+    <div id="players-list">
+        <h3>اللاعبين المتواجدين حالياً: <span id="count">0</span></h3>
+        <ul id="list"></ul>
+    </div>
+
+    <script>
+        // دالة لتحويل إحداثيات لعبة GTA V (حسب نظام خريطة فايف أم) إلى نسب مئوية لتوزيع النقاط على الصورة
+        function gameToMapCoords(x, y) {
+            // هذه القيم القياسية لخريطة جي تي إيه 5 الافتراضية
+            const gtaXMin = -4000.0;
+            const gtaXMax = 4000.0;
+            const gtaYMin = -4000.0;
+            const gtaYMax = 4000.0;
+
+            let percentX = ((x - gtaXMin) / (gtaXMax - gtaXMin)) * 100;
+            let percentY = ((y - gtaYMin) / (gtaYMax - gtaYMin)) * 100;
+
+            // عكس محور y لأن إحداثيات الويب تبدأ من الأعلى بينما خريطة اللعبة من الأسفل
+            percentY = 100 - percentY;
+
+            return { x: percentX, y: percentY };
+        }
+
+        function updateMapData() {
+            // هنا سيتم جلب ملف الـ JSON الذي يحدثه السيرفر باستمرار
+            fetch('players.json')
+                .then(response => response.json())
+                .then(data => {
+                    const markersLayer = document.getElementById('markers-layer');
+                    const listElement = document.getElementById('list');
+                    const countElement = document.getElementById('count');
+                    
+                    markersLayer.innerHTML = '';
+                    listElement.innerHTML = '';
+                    countElement.textContent = data.length;
+
+                    data.forEach(player => {
+                        let pos = gameToMapCoords(player.x, player.y);
+
+                        // إنشاء نقطة اللاعب على الخريطة
+                        let marker = document.createElement('div');
+                        marker.className = 'player-marker';
+                        marker.style.left = pos.x + '%';
+                        marker.style.top = pos.y + '%';
+
+                        let tooltip = document.createElement('div');
+                        tooltip.className = 'player-tooltip';
+                        tooltip.textContent = `${player.name} (ID: ${player.id})`;
+                        marker.appendChild(tooltip);
+
+                        markersLayer.appendChild(marker);
+
+                        // إضافة اسم اللاعب للقائمة التحتية
+                        let li = document.createElement('li');
+                        li.textContent = `${player.name} - ID: ${player.id} [X: ${Math.floor(player.x)}, Y: ${Math.floor(player.y)}]`;
+                        listElement.appendChild(li);
+                    });
+                })
+                .catch(err => console.log('جاري انتظار تحديث البيانات من السيرفر...'));
+        }
+
+        // تحديث البيانات كل 3 ثوانٍ تلقائياً في الصفحة
+        setInterval(updateMapData, 3000);
+        updateMapData();
+    </script>
+</body>
+</html>
