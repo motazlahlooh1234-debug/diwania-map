@@ -88,9 +88,9 @@
 
         // دالة تحويل إحداثيات FiveM (التي تكون عادة بين -4000 و 8000) إلى بكسل الصورة
         function gameToLeafletCoords(x, y) {
-            // تعديل معامل الضرب وعكس محور Y ليتطابق مع مكانك الفعلي بالمللي
-            const fx = (x + 4000) * (mapWidth / 11500);
-            const fy = (y - 7500) * (mapHeight / -11500);
+            // تصحيح نطاق ومعاملات إحداثيات Leaflet لتتطابق مع وسط المدينة والمطارات بدقة
+            const fx = (x - 3000) * (mapWidth / -8000);
+            const fy = (y + 3000) * (mapHeight / 11000);
             return [fy, fx];
         }
 
