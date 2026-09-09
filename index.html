@@ -97,16 +97,17 @@
         const API_KEY = "$2a$10$fyIbW0CfBtYcb752LI0jwOByEIxHLz7IXVohtcw3u79gSuwOKZhku";
 
         function gameToMapCoords(x, y) {
-            // الحدود القياسية الصحيحة لخريطة GTA V
-            const gtaXMin = -3200.0;
-            const gtaXMax = 3300.0;
-            const gtaYMin = -3800.0;
-            const gtaYMax = 8000.0;
+            // الإحداثيات الثابتة والنهائية المعتمدة لخريطة FiveM والـ Blips
+            const left = -4000;
+            const right = 4400;
+            const top = 8000;
+            const bottom = -4000;
 
-            let percentX = ((x - gtaXMin) / (gtaXMax - gtaXMin)) * 100;
-            let percentY = ((y - gtaYMin) / (gtaYMax - gtaYMin)) * 100;
+            // حساب النسبة المئوية لمكان اللاعب بناءً على حجم خريطة اللعبة الحقيقي
+            let percentX = ((x - left) / (right - left)) * 100;
+            let percentY = ((y - bottom) / (top - bottom)) * 100;
 
-            // إبقاء محور X طبيعي وعكس محور Y فقط
+            // عكس محور Y لأن نظام الشاشة يبدأ من الأعلى بينما اللعبة من الأسفل
             percentY = 100 - percentY;
 
             return { x: percentX, y: percentY };
