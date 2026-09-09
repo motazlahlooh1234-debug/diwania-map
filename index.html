@@ -97,15 +97,16 @@
         const API_KEY = "$2a$10$fyIbW0CfBtYcb752LI0jwOByEIxHLz7IXVohtcw3u79gSuwOKZhku";
 
         function gameToMapCoords(x, y) {
-            // الإحداثيات المعدلة خصيصاً لضبط تمركز النقاط بدقة على الخريطة
-            const gtaXMin = -3600.0;
-            const gtaXMax = 4200.0;
-            const gtaYMin = -3300.0;
-            const gtaYMax = 8000.0;
+            // الإحداثيات القياسية الصحيحة لخريطة GTA V لتطابق مكانك تماماً
+            const gtaXMin = -3242.0;
+            const gtaXMax = 3138.0;
+            const gtaYMin = -3970.0;
+            const gtaYMax = 7714.0;
 
             let percentX = ((x - gtaXMin) / (gtaXMax - gtaXMin)) * 100;
             let percentY = ((y - gtaYMin) / (gtaYMax - gtaYMin)) * 100;
 
+            // عكس محور Y لأن نظام إحداثيات الخريطة يختلف عن شاشة المتصفح
             percentY = 100 - percentY;
 
             return { x: percentX, y: percentY };
