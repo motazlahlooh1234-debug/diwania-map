@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>خريطة مدينة الديوانية المباشرة</title>
+    <!-- استدعاء ملفات مكتبة Leaflet للخرائط -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             margin: 0;
@@ -23,7 +25,6 @@
             color: #ff4757;
         }
         #map-container {
-            position: relative;
             width: 800px;
             height: 800px;
             background: #1e272e;
@@ -32,40 +33,10 @@
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        #map-image {
+        #map {
             width: 100%;
             height: 100%;
-            object-fit: cover;
-        }
-        .player-marker {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background-color: #2ed573;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .player-marker:hover {
-            transform: translate(-50%, -50%) scale(1.5);
-            background-color: #ffa502;
-            z-index: 100;
-        }
-        .player-tooltip {
-            position: absolute;
-            bottom: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            display: none;
-            pointer-events: none;
-        }
-        .player-marker:hover .player-tooltip {
-            display: block;
+            background: #1e272e;
         }
         #players-list {
             margin-top: 15px;
@@ -83,8 +54,7 @@
     <h1>🗺️ خريطة مدينة الديوانية الحية</h1>
     
     <div id="map-container">
-        <img id="map-image" src="map.jpg" alt="خريطة المدينة">
-        <div id="markers-layer"></div>
+        <div id="map"></div>
     </div>
 
     <div id="players-list">
@@ -92,26 +62,39 @@
         <ul id="list"></ul>
     </div>
 
+    <!-- استدعاء مكتبة Leaflet الجافاسكريبت -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const BIN_ID = "6aa15f50ffd5d16053f1c588";
         const API_KEY = "$2a$10$fyIbW0CfBtYcb752LI0jwOByEIxHLz7IXVohtcw3u79gSuwOKZhku";
 
-        function gameToMapCoords(x, y) {
-            // الإحداثيات الثابتة والنهائية المعتمدة لخريطة FiveM والـ Blips
-            const left = -4000;
-            const right = 4400;
-            const top = 8000;
-            const bottom = -4000;
+        // إعداد خريطة Leaflet بنظام إحداثيات بسيط يتوافق مع ألعاب العالم المفتوح
+        const map = L.map('map', {
+            crs: L.CRS.Simple,
+            minZoom: -2,
+            maxZoom: 4,
+            zoomControl: false
+        });
 
-            // حساب النسبة المئوية لمكان اللاعب بناءً على حجم خريطة اللعبة الحقيقي
-            let percentX = ((x - left) / (right - left)) * 100;
-            let percentY = ((y - bottom) / (top - bottom)) * 100;
+        // حدود الخريطة بناءً على أبعاد ملف الصورة الفعلي (افتراضي 8192x8192 أو عدل الأرقام حسب مقاس صورة map.jpg لديك)
+        const mapWidth = 8192;
+        const mapHeight = 8192;
+        const bounds = [[0, 0], [mapHeight, mapWidth]];
+        
+        // ربط صورة map.jpg بالنظام الإحداثي
+        L.imageOverlay('map.jpg', bounds).addTo(map);
+        map.fitBounds(bounds);
+        map.setZoom(-1);
 
-            // عكس محور Y لأن نظام الشاشة يبدأ من الأعلى بينما اللعبة من الأسفل
-            percentY = 100 - percentY;
-
-            return { x: percentX, y: percentY };
+        // دالة تحويل إحداثيات FiveM (التي تكون عادة بين -4000 و 8000) إلى بكسل الصورة
+        function gameToLeafletCoords(x, y) {
+            // معادلة مطابقة معيارية لـ GTA V / FiveM على خرائط الصور الكاملة
+            const fx = (x + 4000) * (mapWidth / 12000);
+            const fy = (y - 8000) * (mapHeight / -12000);
+            return [fy, fx];
         }
+
+        let markers = {};
 
         function updateMapData() {
             fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -119,44 +102,58 @@
                     'X-Master-Key': API_KEY
                 }
             })
-                .then(response => response.json())
-                .then(res => {
-                    const data = res.record;
-                    const markersLayer = document.getElementById('markers-layer');
-                    const listElement = document.getElementById('list');
-                    const countElement = document.getElementById('count');
-                    
-                    markersLayer.innerHTML = '';
-                    listElement.innerHTML = '';
-                    
-                    if (!Array.isArray(data)) {
-                        countElement.textContent = 0;
-                        return;
+            .then(response => response.json())
+            .then(res => {
+                const data = res.record;
+                const listElement = document.getElementById('list');
+                const countElement = document.getElementById('count');
+                
+                listElement.innerHTML = '';
+                
+                if (!Array.isArray(data)) {
+                    countElement.textContent = 0;
+                    return;
+                }
+
+                countElement.textContent = data.length;
+
+                let activeIds = [];
+
+                data.forEach(player => {
+                    activeIds.push(player.id);
+                    let coords = gameToLeafletCoords(player.x, player.y);
+
+                    if (markers[player.id]) {
+                        // تحديث موقع النقطة إذا كانت موجودة مسبقاً
+                        markers[player.id].setLatLng(coords);
+                        markers[player.id].getPopup().setContent(`${player.name} (ID: ${player.id})`);
+                    } else {
+                        // إنشاء علامة جديدة للاعب
+                        let customIcon = L.divIcon({
+                            className: 'custom-player-marker',
+                            html: '<div style="width: 12px; height: 12px; background-color: #2ed573; border: 2px solid #fff; border-radius: 50%;"></div>',
+                            iconSize: [12, 12]
+                        });
+
+                        let marker = L.marker(coords, { icon: customIcon }).addTo(map);
+                        marker.bindPopup(`${player.name} (ID: ${player.id})`);
+                        markers[player.id] = marker;
                     }
 
-                    countElement.textContent = data.length;
+                    let li = document.createElement('li');
+                    li.textContent = `${player.name} - ID: ${player.id} [X: ${Math.floor(player.x)}, Y: ${Math.floor(player.y)}]`;
+                    listElement.appendChild(li);
+                });
 
-                    data.forEach(player => {
-                        let pos = gameToMapCoords(player.x, player.y);
-
-                        let marker = document.createElement('div');
-                        marker.className = 'player-marker';
-                        marker.style.left = pos.x + '%';
-                        marker.style.top = pos.y + '%';
-
-                        let tooltip = document.createElement('div');
-                        tooltip.className = 'player-tooltip';
-                        tooltip.textContent = `${player.name} (ID: ${player.id})`;
-                        marker.appendChild(tooltip);
-
-                        markersLayer.appendChild(marker);
-
-                        let li = document.createElement('li');
-                        li.textContent = `${player.name} - ID: ${player.id} [X: ${Math.floor(player.x)}, Y: ${Math.floor(player.y)}]`;
-                        listElement.appendChild(li);
-                    });
-                })
-                .catch(err => console.log('جاري انتظار تحديث البيانات من السيرفر...'));
+                // إزالة اللاعبين الذين خرجوا من السيرفر
+                Object.keys(markers).forEach(id => {
+                    if (!activeIds.includes(Number(id))) {
+                        map.removeLayer(markers[id]);
+                        delete markers[id];
+                    }
+                });
+            })
+            .catch(err => console.log('جاري انتظار تحديث البيانات...'));
         }
 
         setInterval(updateMapData, 3000);
